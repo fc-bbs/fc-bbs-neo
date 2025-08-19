@@ -86,22 +86,23 @@ public class CommentService {
     }
     @Transactional
     public void commentPostMessage(CommentPostMessageContentParam param){
-        Comment comment = Comment.buildByCommentPostMessage(
-                param.getPostMessageId(), param.getUserId(), param.getContent());//新增一条评论记录
+        Comment comment = Comment.buildByCommentPostMessage(param.getPostMessageId(), param.getUserId(), param.getContent());//新增一条评论记录
         User user = userRepo.getReferenceById(param.getUserId());
         if(user.getDeleteFlag()){//该用户已经被封禁
             throw new BizException("您已被封禁,无法发帖");
         }
         if(wxTextCheck.equals("true")){
-            TextCheckResponse textCheckResponse = wxSaveService.commentTextCheck(
-                    param.getContent(),user);
+            TextCheckResponse textCheckResponse = wxSaveService.commentTextCheck(param.getContent(),user);
             if(textCheckResponse==null){
-                log.error("帖子微信安全模块检测网路异常");
+                log.error("评论微信安全模块检测网路异常");
             }
             else {
                 if(textCheckResponse.getErrcode().equals(0)){//
                     //如果错误码正常
                     if(textCheckResponse.getResult().getSuggest().equals("risky")){//文本内容明显有问题
+                        comment.setDeleteFlag(true);
+                        commentRepo.save(comment);
+
                         throw new BizException("您的评论有敏感词");
 
                     }
@@ -114,6 +115,7 @@ public class CommentService {
                 }
                 else {
                     log.error("帖子微信安全模块接口错误码异常");
+                
                 }
             }
         }
